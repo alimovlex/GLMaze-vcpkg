@@ -29,6 +29,8 @@ else()
     message(STATUS "FreeImage found via module finder: ${FREEIMAGE_LIBRARY}")
 endif()
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # ── Executable ────────────────────────────────────────────────────────────────
 add_executable(${PROJECT_TARGETBIN} ${SRC})
 set_target_properties(${PROJECT_TARGETBIN} PROPERTIES LINKER_LANGUAGE CXX)
