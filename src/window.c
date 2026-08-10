@@ -69,11 +69,20 @@ int window_do_events()
 		if(ev.type == SDL_KEYDOWN)
 		{
 			SDL_Keycode key = ev.key.keysym.sym;
-			if(key == SDLK_ESCAPE) return 0;
+            SDL_Keymod mods = SDL_GetModState();
 
-			unsigned int i;
-			for(i=0; i<keypress_handlers_count; i++) keypress_handlers[i](key);
+//            if(key == SDLK_q || key == SDLK_ESCAPE)
+//                return 0;
+            /* Command (macOS) / Super (Linux/Windows) + Delete */
+            if(key == SDLK_DELETE && (mods & KMOD_GUI))
+                return 0;
+
+            unsigned int i;
+            for(i = 0; i < keypress_handlers_count; i++)
+                keypress_handlers[i](key);
 		}
+
+
 #if defined SCREENSAVER
 		if(ev.type == SDL_MOUSEBUTTONDOWN) return 0;
 		if(ev.type == SDL_MOUSEMOTION)
