@@ -23,17 +23,41 @@ static struct ConfigEntry* get_config_entry_by_name(char *name);
 static char* string_create_from(char *other, int count);
 static int string_get_char_index(char *str, char c);
 
+// void config_load()
+// {
+// 	FILE *file = fopen("config.txt", "r");
+// 	char str[128];
+// 	while(fgets(str, 128, file) != NULL)
+// 	{
+// 		if(strlen(str) == 1) continue; //contains only the newline character
+// 		if(str[0] == '#') continue; //comment
+// 		int symbol_index = string_get_char_index(str, '=');
+// 		set_value_auto_free(string_create_from(str, symbol_index), string_create_from(str+symbol_index+1, strlen(str)-symbol_index-2));
+// 	}
+// }
 void config_load()
 {
 	FILE *file = fopen("config.txt", "r");
+	if(!file) return;
+
 	char str[128];
-	while(fgets(str, 128, file) != NULL)
+	while(fgets(str, sizeof(str), file) != NULL)
 	{
-		if(strlen(str) == 1) continue; //contains only the newline character
-		if(str[0] == '#') continue; //comment
+		// Strip trailing newline and carriage return characters safely
+		str[strcspn(str, "\r\n")] = 0;
+
+		if(strlen(str) == 0) continue; // Empty line
+		if(str[0] == '#') continue;    // Comment line
+
 		int symbol_index = string_get_char_index(str, '=');
-		set_value_auto_free(string_create_from(str, symbol_index), string_create_from(str+symbol_index+1, strlen(str)-symbol_index-2));
+		if(symbol_index >= (int)strlen(str)) continue; // '=' symbol not found
+
+		set_value_auto_free(
+			string_create_from(str, symbol_index),
+			string_create_from(str + symbol_index + 1, strlen(str) - symbol_index - 1)
+		);
 	}
+	fclose(file);
 }
 
 void config_print()

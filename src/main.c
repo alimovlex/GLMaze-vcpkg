@@ -1,16 +1,24 @@
+
 /* Copyright (C) 2016 ultitech - All Rights Reserved
  * This file is subject to the terms and conditions defined in
  * file 'LICENSE', which is part of this source code package.
  */
+#define _GNU_SOURCE
 
 #include "drawer.h"
 #include "window.h"
 #include "scene.h"
 #include "config.h"
 #include "file.h"
+#include <stdio.h>
+#include <libgen.h>
+#include <unistd.h>
 
 #include <stdlib.h>
 #include <time.h>
+#include <limits.h>
+#include <linux/limits.h>
+
 #ifdef _WIN32
 #include <string.h>
 #include <windows.h>
@@ -83,59 +91,56 @@ int main(int argc, char *argv[])
 {
 	srand(time(NULL));
 
-#if defined __APPLE__
+	// Get the directory where the executable is located
+	char exe_path[PATH_MAX];
+	char exe_dir[PATH_MAX];
+
+#ifdef __linux__
+	ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path)-1);
+	if(len != -1)
 	{
-		CFBundleRef mainBundle = CFBundleGetMainBundle();
-		CFURLRef resourcesURL = CFBundleCopyResourcesDirectoryURL(mainBundle);
-		char path[PATH_MAX];
-		if (!CFURLGetFileSystemRepresentation(resourcesURL, TRUE, (UInt8 *)path, PATH_MAX))
-		{
-			printf("cannot change working directory, check permissions\n");
-			exit(0);
-		}
-		CFRelease(resourcesURL);
-
-		chdir(path);
+		exe_path[len] = '\0';
+		char *dir = dirname(exe_path);
+		strcpy(exe_dir, dir);
+		strcat(exe_dir, "/");
 	}
-#endif
-#if defined _WIN32
+	else
 	{
-		TCHAR dest[ MAX_PATH ];
-		GetModuleFileName( NULL, dest, MAX_PATH );
-		char drive[ _MAX_DRIVE ];
-		char dir[ _MAX_DIR ];
-		char fname[ _MAX_FNAME ];
-		char ext[ _MAX_EXT ];
-		_splitpath_s( dest, drive, _MAX_DRIVE, dir, _MAX_DIR, fname, _MAX_FNAME, ext, _MAX_EXT );
-		_chdir( dir );
+		strcpy(exe_dir, "./");
 	}
-#endif
-
-	//TODO: instead of chdir, pass the path here
-	file_set_resource_dir("./");
-
-	file_set_output_dir("./");
-
-#if defined SCREENSAVER
-	enum screensaverParameter parameter = get_screensaver_parameter(argc, argv);
-
-	switch(parameter)
-	{
-		case NONE:
-			break;
-		case CONFIGURATION:
-			system("notepad config.txt");
-			break;
-		case PREVIEW:
-			//SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "No preview", "This screensaver can not be previewed.", NULL);
-			break;
-		case FULLSCREEN:
-			run();
-			break;
-	}
+#elif _WIN32
+	GetModuleFileName(NULL, exe_path, sizeof(exe_path));
+	char *dir = dirname(exe_path);
+	strcpy(exe_dir, dir);
+	strcat(exe_dir, "\\");
+#elif __APPLE__
+	CFURLRef url = CFBundleCopyExecutableURL(CFBundleGetMainBundle());
+	CFStringRef path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
+	CFStringGetCString(path, exe_path, sizeof(exe_path), kCFStringEncodingUTF8);
+	CFRelease(path);
+	CFRelease(url);
+	char *dir = dirname(exe_path);
+	strcpy(exe_dir, dir);
+	strcat(exe_dir, "/");
 #else
-	run();
+	strcpy(exe_dir, "./");
 #endif
+
+	// Set resource and output directories to the executable's directory
+	file_set_resource_dir(exe_dir);
+	file_set_output_dir(exe_dir);
+
+	// Also try to load config from executable directory
+	// The config_load() function expects config.txt in the current working directory
+	// We need to change the current working directory to the executable's directory
+	if(chdir(exe_dir) != 0)
+	{
+		// If we can't change directory, try to use the current directory
+		// but the resources might not be found
+		fprintf(stderr, "Warning: Could not change to executable directory: %s\n", exe_dir);
+	}
+
+	run();
 
 	return 0;
 }
